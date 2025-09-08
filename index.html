@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TextConnect – Firebase</title>
+  <style>
+    :root { --vio:#7c3aed; --line:#e5e7eb; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    .app{display:grid;grid-template-columns:16rem 24rem 1fr;height:100vh}
+    .left{border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between}
+    .brand{display:flex;gap:12px;align-items:center;margin:16px}
+    .logo{height:40px;width:40px;border-radius:16px;background:#ede9fe;display:grid;place-items:center;color:var(--vio);font-weight:700}
+    .menu button{width:100%;text-align:left;padding:10px 16px;border:none;background:transparent;border-radius:12px;cursor:pointer;font-weight:500}
+    .menu .active{background:#eef2ff;color:#4338ca}
+    .me{margin:12px;background:#f5f3ff;border-radius:16px;padding:12px;display:flex;gap:10px;align-items:center}
+    .avatar{height:40px;width:40px;border-radius:999px;background:#ddd;object-fit:cover}
+    .mid{border-right:1px solid var(--line);display:flex;flex-direction:column}
+    .bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px}
+    .search{margin:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+    .list{overflow:auto;border-top:1px solid var(--line)}
+    .item{width:100%;text-align:left;padding:12px;border-bottom:1px solid #f1f5f9;background:#fff;cursor:pointer}
+    .item.active{background:#f5f3ff}
+    .pill{background:#ede9fe;color:#6d28d9;border:none;border-radius:999px;padding:6px 10px;cursor:pointer;font-size:12px}
+    .right{display:flex;flex-direction:column}
+    .chatHead{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line)}
+    .circle{height:40px;width:40px;border-radius:999px;background:#ddd;display:grid;place-items:center;font-weight:700}
+    .msgs{flex:1;overflow:auto;padding:16px;background:#fff}
+    .bubble{max-width:65%;padding:10px 12px;border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.08);margin:4px 0}
+    .mine{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;margin-left:auto}
+    .theirs{background:#f1f5f9}
+    .tiny{font-size:10px;opacity:.7;margin-top:4px}
+    .composer{display:flex;gap:8px;border-top:1px solid var(--line);padding:12px}
+    .input{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+    .send{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border:none;border-radius:12px;padding:10px 14px;cursor:pointer}
+    .center{display:grid;place-items:center;height:100vh;background:linear-gradient(135deg,#faf5ff,#eef2ff)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 6px 24px rgba(0,0,0,.06);padding:28px;width:min(480px,92vw)}
+    .btn{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer}
+    .hint{color:#64748b;font-size:14px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:.92}
+    @media (max-width:980px){ .app{grid-template-columns:1fr} .left,.mid{display:none} }
+  </style>
+</head>
+<body>
+
+<!-- Sign-in screen -->
+<div id="signin" class="center" style="display:none">
+  <div class="card">
+    <h2 style="margin:0 0 4px 0">TextConnect</h2>
+    <p class="hint" style="margin:0 0 18px 0">Firebase সহ একদম রেডি ওয়েব ডেমো</p>
+    <button id="googleBtn" class="btn">🔐 Sign in with Google</button>
+    <p class="hint" style="margin-top:12px">Sign-in এর পর আপনার জন্য একটি ডেমো ফোন নম্বর তৈরি হবে।</p>
+    <div id="cfgWarn" class="hint" style="color:#b91c1c;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" class="app" style="display:none">
+  <aside class="left">
+    <div>
+      <div class="brand">
+        <div class="logo">💬</div>
+        <div>
+          <div style="font-weight:700">TextConnect</div>
+          <div class="hint" style="margin-top:-2px">Free messaging & calls</div>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="active">Messages</button>
+        <button>Contacts</button>
+        <button>Video Call</button>
+      </div>
+    </div>
+    <div class="me">
+      <img id="mePhoto" class="avatar" alt="">
+      <div style="flex:1">
+        <div id="meName" style="font-weight:600">—</div>
+        <div id="mePhone" class="hint">—</div>
+      </div>
+      <button id="signOutBtn" class="pill">Sign out</button>
+    </div>
+  </aside>
+
+  <section class="mid">
+    <div class="bar">
+      <div style="font-weight:600">Conversations</div>
+      <button id="searchByNum" class="pill">Search by number</button>
+    </div>
+    <div style="padding:12px">
+      <input id="searchBox" class="search" placeholder="Search conversations..." />
+    </div>
+    <div id="convList" class="list"></div>
+  </section>
+
+  <section class="right">
+    <div id="chatHead" class="chatHead" style="display:none">
+      <div class="circle" id="peerAvatar">?</div>
+      <div style="flex:1">
+        <div id="peerName" style="font-weight:700">—</div>
+        <div id="peerPhone" class="hint">—</div>
+      </div>
+      <div class="hint">📞 🎥 ⋮</div>
+    </div>
+    <div id="emptyState" class="center" style="place-items:start;padding-top:14vh">
+      <div style="text-align:center">
+        <h3 style="margin:0 0 6px 0">Select a conversation</h3>
+        <div class="hint">অথবা “Search by number” দিয়ে কাউকে অ্যাড করুন</div>
+      </div>
+    </div>
+    <div id="msgs" class="msgs" style="display:none"></div>
+    <div id="composer" class="composer" style="display:none">
+      <input id="msgInput" class="input" placeholder="Type a message..." />
+      <button id="sendBtn" class="send">➤</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script type="module">
+/* ---------------- Firebase imports ----------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+  onAuthStateChanged, setPersistence, browserLocalPersistence, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, collection, addDoc, serverTimestamp,
+  onSnapshot, query, orderBy, where, getDocs, setLogLevel
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ---------------- Tiny helpers ----------------- */
+const $ = (id) => document.getElementById(id);
+const toast = (t) => { const el=$('toast'); el.textContent=t; el.style.display='block'; setTimeout(()=>el.style.display='none', 3500); };
+const randomDigits = (n) => Array.from({length:n},()=>Math.floor(Math.random()*10)).join("");
+const normalize10 = (s) => s.replace(/\D/g,"").slice(-10);
+const e164US = (d10) => `+1${d10}`;
+const humanUS = (d10) => `+1 (${d10.slice(0,3)}) ${d10.slice(3,6)}-${d10.slice(6)}`;
+const convoIdFor = (a,b) => [a,b].sort().join("_");
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAa6qEFKCqjvVB9hS1l-MPTbnYXRtpFbik",
+  authDomain: "massage-68c0d.firebaseapp.com",
+  projectId: "massage-68c0d",
+  storageBucket: "massage-68c0d.firebasestorage.app",
+  messagingSenderId: "388617909939",
+  appId: "1:388617909939:web:a70dc50e178013fed362c6",
+  measurementId: "G-EFQXH4R003"
+};
+
+/* --------------------------------------------------------- */
+
+if (!firebaseConfig?.apiKey) {
+  $('signin').style.display='block';
+  $('cfgWarn').style.display='block';
+  $('cfgWarn').textContent = '⚠️ Firebase config দেয়া হয়নি—Project settings থেকে কপি করে এখানে বসান।';
+  $('googleBtn').onclick = () => alert('Config নেই। আগে firebaseConfig বসান।');
+} else {
+  /* ------------- Initialize ------------- */
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  setLogLevel('error');
+  setPersistence(auth, browserLocalPersistence).catch(console.warn);
+
+  /* ------------- UI bindings ------------- */
+  $('googleBtn').onclick = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error(err);
+      toast((err.code||'') + ' ' + (err.message||''));
+      try { await signInWithRedirect(auth, provider); } catch(e){ console.error(e); }
+    }
+  };
+  $('signOutBtn').onclick = () => signOut(auth);
+
+  let me = null, peer = null, activeConvoId = null;
+  let unsubMsgs = null, unsubConvos = null;
+  let convCache = [];
+
+  async function ensureUserDoc(user) {
+    const uRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(uRef);
+    let data = snap.exists() ? snap.data() : {};
+
+    if (!data.phone) {
+      for (let i=0;i<5;i++){
+        const d10 = randomDigits(10);
+        const phone = e164US(d10);
+        const q = query(collection(db,'users'), where('phone','==',phone));
+        if ((await getDocs(q)).empty) { data.phone = phone; data.phoneHuman = humanUS(d10); break; }
+      }
+      if (!data.phone) { const d10=randomDigits(10); data.phone = e164US(d10); data.phoneHuman=humanUS(d10); }
+    }
+    data.displayName = user.displayName || data.displayName || 'User';
+    data.email = user.email || data.email || '';
+    data.photoURL = user.photoURL || data.photoURL || '';
+    data.updatedAt = serverTimestamp();
+    await setDoc(uRef, data, { merge:true });
+    me = { uid:user.uid, ...data };
+
+    $('meName').textContent = me.displayName;
+    $('mePhone').textContent = me.phoneHuman || me.phone;
+    $('mePhoto').src = me.photoURL || 'https://i.pravatar.cc/100?u='+user.uid;
+  }
+
+  function renderConvList(search='') {
+    const box = $('convList'); box.innerHTML='';
+    const q = search.trim().toLowerCase();
+    const list = convCache.filter(r => !q || r.peerName?.toLowerCase().includes(q) || (r.peerPhone||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+    if (!list.length) { box.innerHTML = '<div class="item"><span class="hint">No conversations</span></div>'; return; }
+    for (const r of list) {
+      const btn = document.createElement('button');
+      btn.className = 'item' + (activeConvoId===r.id?' active':'');
+      btn.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="circle">${(r.peerName||'?').slice(0,1).toUpperCase()}</div>
+          <div>
+            <div style="font-weight:600">${r.peerName||'Unknown'}</div>
+            <div class="hint">${r.peerPhone||''}</div>
+            ${r.last? `<div class="hint" style="margin-top:4px">${r.last}</div>`:''}
+          </div>
+        </div>`;
+      btn.onclick = () => openConversation(r.peerId);
+      box.appendChild(btn);
+    }
+  }
+  $('searchBox').addEventListener('input', e=>renderConvList(e.target.value));
+
+  function watchConversations() {
+    if (unsubConvos) unsubConvos();
+    const qConvos = query(collection(db,'conversations'), where('participants','array-contains', auth.currentUser.uid));
+    unsubConvos = onSnapshot(qConvos, async (snap) => {
+      const rows=[];
+      for (const d of snap.docs) {
+        const c = d.data();
+        const peerId = c.participants.find(p=>p!==auth.currentUser.uid);
+        const pDoc = await getDoc(doc(db,'users',peerId));
+        const info = pDoc.exists()?pDoc.data():{displayName:'Unknown', phone:''};
+        rows.push({ id:d.id, peerId, peerName:info.displayName, peerPhone:info.phoneHuman || info.phone, updatedAt:c.updatedAt?.toMillis?.()||0, last:c.lastMessage||'' });
+      }
+      rows.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      convCache = rows;
+      renderConvList();
+    });
+  }
+
+  async function openConversation(peerUid) {
+    if (!peerUid || peerUid===auth.currentUser.uid) return;
+    const pSnap = await getDoc(doc(db,'users', peerUid));
+    if (!pSnap.exists()) { toast('Peer profile not found'); return; }
+    peer = { uid: peerUid, ...pSnap.data() };
+
+    const id = convoIdFor(auth.currentUser.uid, peerUid);
+    const cRef = doc(db,'conversations', id);
+    const cSnap = await getDoc(cRef);
+    if (!cSnap.exists()) {
+      await setDoc(cRef, {
+        participants: [auth.currentUser.uid, peerUid],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessage: ''
+      }, { merge:true });
+    }
+    activeConvoId = id;
+
+    $('emptyState').style.display='none';
+    $('chatHead').style.display='flex';
+    $('msgs').style.display='block';
+    $('composer').style.display='flex';
+    $('peerName').textContent = peer.displayName || 'Unknown';
+    $('peerPhone').textContent = peer.phoneHuman || peer.phone || '';
+    $('peerAvatar').textContent = (peer.displayName||'?').slice(0,1).toUpperCase();
+
+    if (unsubMsgs) unsubMsgs();
+    unsubMsgs = onSnapshot(query(collection(db,'conversations',id,'messages'), orderBy('ts','asc')), (snap)=>{
+      const box = $('msgs'); box.innerHTML='';
+      snap.forEach(docu=>{
+        const m = docu.data();
+        const mine = m.from===auth.currentUser.uid;
+        const div = document.createElement('div');
+        div.className = 'bubble ' + (mine?'mine':'theirs');
+        div.innerHTML = `<div>${m.text||''}</div><div class="tiny">${m.ts?.toDate?.().toLocaleTimeString?.()||''}</div>`;
+        box.appendChild(div);
+      });
+      $('msgs').scrollTop = $('msgs').scrollHeight;
+    });
+
+    renderConvList();
+  }
+
+  async function sendMessage() {
+    const text = $('msgInput').value.trim();
+    if (!text || !activeConvoId || !peer) return;
+    $('msgInput').value = '';
+    await addDoc(collection(db,'conversations',activeConvoId,'messages'), {
+      from: auth.currentUser.uid, to: peer.uid, text, ts: serverTimestamp()
+    });
+    await setDoc(doc(db,'conversations',activeConvoId), {
+      updatedAt: serverTimestamp(), lastMessage: text
+    }, { merge:true });
+  }
+  $('sendBtn').onclick = sendMessage;
+  $('msgInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+
+  $('searchByNum').onclick = async () => {
+    const raw = prompt('Enter a phone number (10 digits, US):');
+    if (!raw) return;
+    const d10 = normalize10(raw);
+    if (d10.length !== 10) { toast('Please enter 10 digits'); return; }
+    const phone = e164US(d10);
+    const snap = await getDocs(query(collection(db,'users'), where('phone','==',phone)));
+    if (snap.empty) { toast('No user found with this number'); return; }
+    const peerUid = snap.docs[0].id;
+    openConversation(peerUid);
+  };
+
+  window.addEventListener('error', (e)=> { toast('JS error: ' + (e.message||'unknown')); });
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      $('signin').style.display='block';
+      $('app').style.display='none';
+      return;
+    }
+    $('signin').style.display='none';
+    $('app').style.display='grid';
+    await ensureUserDoc(user);
+    watchConversations();
+  });
+}
+</script>
+</body>
+</html>
